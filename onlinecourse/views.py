@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.http import HttpResponseRedirect
 # <HINT> Import any new Models here
-from .models import Course, Enrollment
+from .models import Course, Enrollment, Question, Choice, Submission
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse
@@ -115,14 +115,15 @@ def submit(request, course_id):
     user = request.user
     enrollment = Enrollment.objects.get(user=user, course=course)
     submission = Submission.objects.create(enrollment=enrollment)
-    submission.choices.clear()
+    submission_choices = []
     for key in request.POST:
         if key.startswith('choice'):
-            value = request.POST[key]
-            submission.choices.add(int(value))
+            submission_choices.append(int(request.POST[key]))
+    choices = Choice.objects.filter(id__in=submission_choices)
+    submission.choices.set(submission_choices)
     submission_id = submission.id
 
-    return HttpResponseRedirect(reverse('onlinecourse:show_exam_result'), args=(course_id, submission_id,))
+    return HttpResponseRedirect(reverse('onlinecourse:show_exam_result', args=(course_id, submission_id,)))
 
 
 # <HINT> Create an exam result view to check if learner passed exam and show their question results and result for each question,
@@ -143,7 +144,7 @@ def show_exam_result(request, course_id, submission_id):
         if question.is_get_score(selected_choices):
             total += question.grade
     context['course'] = course
-    context['total_score'] = total
+    context['grade'] = total
     context['choices'] = choices
     return render(request, 'onlinecourse/exam_result_bootstrap.html', context)
 
